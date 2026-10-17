@@ -1,0 +1,17 @@
+{
+  "name": "delivery-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:customer-web": "npm run dev --workspace=customer-web",
+    "dev:admin-web": "npm run dev --workspace=admin-web",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

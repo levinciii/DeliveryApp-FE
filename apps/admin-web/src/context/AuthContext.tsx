@@ -1,0 +1,55 @@
+import type { AuthResponse, AuthUser } from "@delivery/shared-types";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { api } from "../lib/api";
+import { clearSession, getSession, saveSession } from "../lib/session";
+
+interface AuthContextValue {
+  user: AuthUser | null;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setUser(getSession().user);
+    setIsLoading(false);
+  }, []);
+
+  async function login(email: string, password: string) {
+    const { data } = await api.post<AuthResponse>("/auth/login", { email, password });
+
+    // There's no separate admin login endpoint, so any account can authenticate. This check is for
+    // UX only; the server enforces ADMIN on every admin route. If it fails, revoke the refresh
+    // token the login just issued so it doesn't linger.
+    if (data.user.role !== "ADMIN") {
+      api.post("/auth/logout", { refreshToken: data.refreshToken }).catch(() => {});
+      throw new Error("This account does not have admin access.");
+    }
+
+    saveSession(data);
+    setUser(data.user);
+  }
+
+  function logout() {
+    const { refreshToken } = getSession();
+    clearSession();
+    setUser(null);
+    if (refreshToken) {
+      api.post("/auth/logout", { refreshToken }).catch(() => {});
+    }
+  }
+
+  return <AuthContext.Provider value={{ user, isLoading, login, logout }}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
+}
