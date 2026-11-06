@@ -1,14 +1,18 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { Button } from "./Button";
 
 const navItems = [
-  { to: "/", label: "Dashboard" },
-  { to: "/browse", label: "Browse" },
+  { to: "/", label: "Dashboard", end: true },
+  { to: "/browse", label: "Browse", end: false },
+  { to: "/cart", label: "Cart", end: false },
+  { to: "/orders", label: "Orders", end: false },
 ];
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const { cart } = useCart();
 
   return (
     <div className="min-h-screen flex">
@@ -20,13 +24,17 @@ export function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
-                  `px-3 py-2 rounded-md text-sm font-medium ${
+                  `px-3 py-2 rounded-md text-sm font-medium flex items-center justify-between ${
                     isActive ? "bg-primary/10 text-primary" : "text-muted hover:bg-ink/5"
                   }`
                 }
               >
                 {item.label}
+                {item.to === "/cart" && cart.itemCount > 0 && (
+                  <span className="text-xs bg-primary text-white rounded-full px-2 py-0.5">{cart.itemCount}</span>
+                )}
               </NavLink>
             ))}
           </nav>

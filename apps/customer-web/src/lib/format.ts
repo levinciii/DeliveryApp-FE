@@ -4,3 +4,9 @@ const peso = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP"
 export function formatPeso(amount: string): string {
   return peso.format(Number(amount));
 }
+
+const dateTime = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" });
+
+export function formatDateTime(iso: string): string {
+  return dateTime.format(new Date(iso));
+}

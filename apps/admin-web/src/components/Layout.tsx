@@ -2,7 +2,10 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./Button";
 
-const navItems = [{ to: "/", label: "Merchants" }];
+const navItems = [
+  { to: "/", label: "Merchants", end: true },
+  { to: "/orders", label: "Orders", end: false },
+];
 
 export function Layout() {
   const { user, logout } = useAuth();
@@ -17,6 +20,7 @@ export function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   `px-3 py-2 rounded-md text-sm font-medium ${
                     isActive ? "bg-primary/10 text-primary" : "text-muted hover:bg-ink/5"

@@ -1,96 +1,106 @@
-import type { Page, Product } from "@delivery/shared-types";
-import { FormEvent, useState } from "react";
-import { Button } from "../components/Button";
+import type { BranchSummary, Page } from "@delivery/shared-types";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card } from "../components/Card";
-import { Input } from "../components/Input";
 import { Pagination } from "../components/Pagination";
 import { api, getErrorMessage } from "../lib/api";
-import { formatPeso } from "../lib/format";
 
-const PAGE_SIZE = 10;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PAGE_SIZE = 12;
+const SEARCH_DELAY_MS = 300;
 
 export function BrowsePage() {
-  const [branchInput, setBranchInput] = useState("");
-  const [branchId, setBranchId] = useState<string | null>(null);
-  const [result, setResult] = useState<Page<Product> | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState<Page<BranchSummary> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  async function load(id: string, page: number) {
-    setError(null);
+  // Wait for a pause in typing before asking the server.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    let stale = false;
     setIsLoading(true);
-    try {
-      const { data } = await api.get<Page<Product>>("/products", {
-        params: { branchId: id, page, pageSize: PAGE_SIZE },
-      });
-      setResult(data);
-    } catch (err) {
-      setResult(null);
-      setError(getErrorMessage(err, "Couldn't load products."));
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const id = branchInput.trim();
-    if (!UUID.test(id)) {
-      setResult(null);
-      setError("That doesn't look like a branch ID. Branch IDs are UUIDs, like 3b1b8f2a-….");
-      return;
-    }
-    setBranchId(id);
-    load(id, 1);
-  }
+    api
+      .get<Page<BranchSummary>>("/branches", {
+        params: { page, pageSize: PAGE_SIZE, ...(search ? { search } : {}) },
+      })
+      .then(({ data }) => {
+        if (stale) return;
+        setResult(data);
+        setError(null);
+      })
+      .catch((err) => !stale && setError(getErrorMessage(err, "Couldn't load places.")))
+      .finally(() => !stale && setIsLoading(false));
+    return () => {
+      stale = true;
+    };
+  }, [page, search]);
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="font-display text-2xl font-semibold text-ink mb-1">Browse products</h1>
-      <p className="text-sm text-muted mb-6">
-        There's no merchant directory yet — paste a branch ID to see its catalog.
-      </p>
+    <div className="max-w-4xl">
+      <h1 className="font-display text-2xl font-semibold text-ink mb-1">Order from</h1>
+      <p className="text-sm text-muted mb-6">Pick a place to see its menu.</p>
 
-      <form onSubmit={handleSubmit} className="flex gap-3 items-end mb-8">
-        <div className="flex-1">
-          <Input
-            label="Branch ID"
-            value={branchInput}
-            onChange={(e) => setBranchInput(e.target.value)}
-            placeholder="e.g. 3b1b8f2a-..."
-            required
-          />
-        </div>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Searching…" : "Search"}
-        </Button>
-      </form>
+      <div className="max-w-md mb-8">
+        <label htmlFor="place-search" className="sr-only">
+          Search places
+        </label>
+        <input
+          id="place-search"
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by restaurant or branch name"
+          className="w-full rounded-md border border-ink/15 bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        />
+      </div>
 
       {error && <p className="text-sm text-danger mb-4">{error}</p>}
+      {isLoading && !result && <p className="text-sm text-muted">Loading…</p>}
 
       {result && result.total === 0 && (
         <p className="text-sm text-muted">
-          No products to show. The branch may not be approved yet, or it has no active products.
+          {search
+            ? `No places match "${search}".`
+            : "No places are open for orders yet. Check back soon."}
         </p>
       )}
 
-      <div className="flex flex-col gap-3">
-        {result?.items.map((product) => (
-          <Card key={product.id} className="border-l-4 border-l-primary flex items-center justify-between">
-            <h3 className="font-medium text-ink">{product.name}</h3>
-            <p className="font-display font-semibold text-ink">{formatPeso(product.price)}</p>
-          </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {result?.items.map((branch) => (
+          <Link key={branch.id} to={`/browse/${branch.id}`} className="block">
+            <Card className="h-full hover:border-primary transition-colors">
+              <div className="flex items-start gap-3">
+                <div
+                  aria-hidden="true"
+                  className="shrink-0 w-10 h-10 rounded-md bg-primary/10 text-primary font-display font-semibold flex items-center justify-center"
+                >
+                  {branch.merchantName.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-display font-semibold text-ink leading-tight">{branch.merchantName}</h2>
+                  <p className="text-sm text-muted">{branch.name}</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted mt-3 line-clamp-2">{branch.address}</p>
+              <p className="text-sm text-ink mt-3">
+                {branch.productCount} item{branch.productCount === 1 ? "" : "s"} on the menu
+              </p>
+            </Card>
+          </Link>
         ))}
       </div>
 
-      {result && branchId && (
-        <Pagination
-          page={result.page}
-          pageSize={result.pageSize}
-          total={result.total}
-          onPageChange={(page) => load(branchId, page)}
-        />
+      {result && (
+        <Pagination page={result.page} pageSize={result.pageSize} total={result.total} onPageChange={setPage} />
       )}
     </div>
   );

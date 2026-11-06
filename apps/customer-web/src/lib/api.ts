@@ -80,3 +80,8 @@ export function getErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error) return err.message;
   return fallback;
 }
+
+/** The machine-readable `code` on an API error (e.g. CART_BRANCH_CONFLICT), if there is one. */
+export function getErrorCode(err: unknown): string | undefined {
+  return axios.isAxiosError<ApiErrorBody>(err) ? err.response?.data?.code : undefined;
+}

@@ -34,6 +34,10 @@ export interface ApiErrorBody {
   message: string;
   statusCode: number;
   issues?: { path: string; message: string }[];
+  /** Present on conflicts the UI can react to: CART_BRANCH_CONFLICT, CART_ITEMS_UNAVAILABLE, OUT_OF_RANGE. */
+  code?: string;
+  /** With CART_ITEMS_UNAVAILABLE: names of the products that can't be ordered. */
+  unavailable?: string[];
 }
 
 export type MerchantStatus = "PENDING_APPROVAL" | "APPROVED" | "SUSPENDED" | "REJECTED";
@@ -45,6 +49,18 @@ export interface Merchant {
   ownerUserId: string;
   branchCount: number;
   createdAt: string;
+}
+
+/** One entry of the customer-facing directory (GET /branches). Only branches that can take orders are listed. */
+export interface BranchSummary {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  merchantName: string;
+  /** Active products on the menu. */
+  productCount: number;
 }
 
 export type ProductStatus = "ACTIVE" | "OUT_OF_STOCK" | "ARCHIVED";
@@ -59,6 +75,44 @@ export interface Product {
   status: ProductStatus;
 }
 
+export interface Address {
+  id: string;
+  label: string | null;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface CartLine {
+  productId: string;
+  name: string;
+  /** 2-decimal money strings, like every amount from the API. */
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+  /** false when the product or its branch was switched off after it went in the cart. */
+  available: boolean;
+}
+
+export interface Cart {
+  branch: { id: string; name: string; merchantName: string } | null;
+  items: CartLine[];
+  itemCount: number;
+  subtotal: string;
+}
+
+/** POST /orders/quote: what checkout would charge. */
+export interface Quote {
+  branchId: string;
+  distanceKm: string;
+  subtotal: string;
+  deliveryFee: string;
+  serviceFee: string;
+  total: string;
+}
+
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+
 export type OrderStatus =
   | "PENDING"
   | "ACCEPTED"
@@ -68,6 +122,48 @@ export type OrderStatus =
   | "DELIVERED"
   | "CANCELLED"
   | "REJECTED";
+
+/** Rows of GET /orders. */
+export interface OrderListItem {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  total: string;
+  itemCount: number;
+  branch: { id: string; name: string };
+  customerName: string;
+  createdAt: string;
+  /** What the signed-in user may do next. Show buttons from this; never copy the rules into the UI. */
+  allowedNextStatuses: OrderStatus[];
+}
+
+export interface OrderLine {
+  productId: string;
+  name: string;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+/** GET /orders/:id */
+export interface OrderDetail {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  notes: string | null;
+  createdAt: string;
+  branch: { id: string; name: string; merchantName: string };
+  customer: { name: string; phone: string | null };
+  deliveryAddress: { address: string; latitude: number; longitude: number };
+  items: OrderLine[];
+  subtotal: string;
+  deliveryFee: string;
+  serviceFee: string;
+  total: string;
+  payment: { method: "COD" | "GCASH" | "MAYA" | "CARD"; status: PaymentStatus; amount: string } | null;
+  history: { status: OrderStatus; changedAt: string }[];
+  allowedNextStatuses: OrderStatus[];
+}
 
 export type DeliveryStatus =
   | "UNASSIGNED"
